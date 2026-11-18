@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import csv
 import io
 import zipfile
@@ -81,17 +83,110 @@ def match_trip_updates(realtime_feed, static_feed):
             if scheduled_time is None:
                 continue
 
+            
             matched_updates += 1
+
+            # Some RTD stop updates have no arrival prediction.
+            if not stop_update.HasField("arrival"):
+                continue
+
+            if not stop_update.arrival.HasField("time"):
+                continue
+
+            predicted_timestamp = stop_update.arrival.time
+
+            service_date = trip_update.trip.start_date
+
+            delay_minutes = calculate_predicted_delay(
+                service_date,
+                scheduled_time,
+                predicted_timestamp
+            )
+
+            if delay_minutes is None:
+                continue
 
             if len(examples) < 5:
                 examples.append({
                     "trip_id": trip_id,
                     "stop_id": stop_update.stop_id,
-                    "scheduled_arrival": scheduled_time
+                    "scheduled_arrival": scheduled_time,
+                    "predicted_delay_minutes": delay_minutes
                 })
+
 
     return total_updates, matched_updates, examples
 
+
+DENVER_TZ = ZoneInfo("America/Denver")
+
+
+def calculate_predicted_delay(
+    service_date,
+    scheduled_time,
+    predicted_timestamp
+):
+    """Calculate RTD's predicted delay in minutes."""
+
+    if not service_date or not scheduled_time or not predicted_timestamp:
+        return None
+
+    # GTFS times may exceed 24 hours.
+    hours, minutes, seconds = map(
+        int, scheduled_time.split(":")
+    )
+
+    service_day = datetime.strptime(
+        service_date, "%Y%m%d"
+    ).date()
+
+    # GTFS schedules use service-day time, not Unix time.
+    scheduled_local = (
+        datetime.combine(
+            service_day,
+            datetime.min.time()
+        )
+        + timedelta(
+            hours=hours,
+            minutes=minutes,
+            seconds=seconds
+        )
+    )
+
+    # Convert RTD's Unix timestamp into Denver time.
+    predicted_local = datetime.fromtimestamp(
+        predicted_timestamp,
+        tz=timezone.utc
+    ).astimezone(DENVER_TZ)
+
+    # Resolve the scheduled local time to a UTC instant.
+    # Ambiguous/nonexistent DST times need separate validation.
+    scheduled_local = scheduled_local.replace(
+        tzinfo=DENVER_TZ
+    )
+
+    if scheduled_local.utcoffset() != (
+        scheduled_local.replace(fold=1).utcoffset()
+    ):
+        return None
+
+    # Reject nonexistent local times during the spring DST change.
+    roundtrip = (
+        scheduled_local.astimezone(timezone.utc)
+        .astimezone(DENVER_TZ)
+    )
+
+    if roundtrip.replace(tzinfo=None) != scheduled_local.replace(
+        tzinfo=None
+    ):
+        return None
+
+    delay = (
+        predicted_local.astimezone(timezone.utc)
+        - scheduled_local.astimezone(timezone.utc)
+    ).total_seconds() / 60
+
+    return round(delay, 2)
 
 
 if __name__ == "__main__":
