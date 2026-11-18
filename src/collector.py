@@ -310,7 +310,11 @@ if __name__ == "__main__":
 
         response = (
             supabase.table("rtd_trip_updates")
-            .insert(records)
+            .upsert(
+                records,
+                on_conflict="feed_timestamp,trip_id,stop_id,stop_sequence",
+                ignore_duplicates=True
+            )
             .execute()
         )
 
