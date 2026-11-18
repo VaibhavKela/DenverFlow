@@ -60,6 +60,7 @@ def match_trip_updates(realtime_feed, static_feed):
     # Match real-time updates against the schedule.
     total_updates = 0
     matched_updates = 0
+    valid_delays = 0
     examples = []
 
     for entity in realtime_feed.entity:
@@ -105,6 +106,7 @@ def match_trip_updates(realtime_feed, static_feed):
 
             if delay_minutes is None:
                 continue
+            valid_delays += 1
 
             if len(examples) < 5:
                 examples.append({
@@ -115,7 +117,7 @@ def match_trip_updates(realtime_feed, static_feed):
                 })
 
 
-    return total_updates, matched_updates, examples
+    return total_updates, matched_updates, valid_delays, examples
 
 
 DENVER_TZ = ZoneInfo("America/Denver")
@@ -189,20 +191,28 @@ def calculate_predicted_delay(
     return round(delay, 2)
 
 
+
 if __name__ == "__main__":
     realtime_feed = fetch_trip_updates()
     static_feed = fetch_static_gtfs()
 
-    total, matched, examples = match_trip_updates(
+    total, matched, valid, examples = match_trip_updates(
         realtime_feed,
         static_feed
     )
 
     print(f"Total real-time stop updates: {total}")
     print(f"Matched schedule records: {matched}")
+    print(f"Valid delay calculations: {valid}")
 
     if total > 0:
-        print(f"Match rate: {matched / total * 100:.2f}%")
+        print(f"Schedule match rate: {matched / total * 100:.2f}%")
+        print(f"Valid delay rate: {valid / total * 100:.2f}%")
+
+    print("Sample matches:")
+    for example in examples:
+        print(example)
+
 
     print("Sample matches:")
     for example in examples:
