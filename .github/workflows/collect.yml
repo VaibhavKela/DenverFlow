@@ -4,6 +4,9 @@ name: DenverFlow RTD Collector
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: "*/15 * * * *"
+
 permissions:
   contents: read
 
