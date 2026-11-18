@@ -1,3 +1,5 @@
+import os
+from supabase import create_client
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import csv
@@ -190,6 +192,19 @@ def calculate_predicted_delay(
 
     return round(delay, 2)
 
+
+def connect_supabase():
+    """Create a secure connection to our Supabase project."""
+
+    supabase_url = os.environ["SUPABASE_URL"]
+    supabase_key = os.environ["SUPABASE_SECRET_KEY"]
+
+    client = create_client(
+        supabase_url,
+        supabase_key
+    )
+
+    return client
 
 
 if __name__ == "__main__":
