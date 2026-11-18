@@ -126,8 +126,8 @@ def match_trip_updates(realtime_feed, static_feed):
                 tz=timezone.utc
             ).isoformat()
 
-            # Prepare only 10 observations for our database test.
-            if len(records) < 10:
+            # Collect up to 500 valid stop observations per run.
+            if len(records) < 500:
                 records.append({
                     "feed_timestamp": datetime.fromtimestamp(
                         trip_update.timestamp,
@@ -304,7 +304,7 @@ if __name__ == "__main__":
 
     print(f"Database records prepared: {len(records)}")
     
-    # Insert only our 10 prepared test observations.
+    # Save the prepared observations, skipping duplicates.
     if records:
         supabase = connect_supabase()
 
