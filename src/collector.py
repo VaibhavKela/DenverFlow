@@ -303,6 +303,19 @@ if __name__ == "__main__":
         print(f"Valid delay rate: {valid / total * 100:.2f}%")
 
     print(f"Database records prepared: {len(records)}")
+    
+    # Insert only our 10 prepared test observations.
+    if records:
+        supabase = connect_supabase()
+
+        response = (
+            supabase.table("rtd_trip_updates")
+            .insert(records)
+            .execute()
+        )
+
+        print(f"Records inserted into Supabase: {len(response.data)}")
+
 
     print("Sample matches:")
     for example in examples:
